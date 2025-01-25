@@ -1,0 +1,21 @@
+{
+    "name": "observer/dice_game",
+    "description": "A non-transitive dice game with provable fairness.",
+    "type": "project",
+    "require": {
+        "symfony/console": "6.0"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Observer\\DiceGame\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Sanzhar Kamidenov",
+            "email": "sanzhar.kamidenov@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable"
+}
