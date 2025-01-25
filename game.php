@@ -44,8 +44,8 @@ class DiceGame {
     }
 
     private function determineFirstMove() {
-        $key = bin2hex(random_bytes(32)); // Генерация криптографического ключа
-        $computerChoice = $this->generateFairRandomInt(0, 1); // Генерация числа 0 или 1
+        $key = bin2hex(random_bytes(32));
+        $computerChoice = $this->generateFairRandomInt(0, 1);
         $hmac = hash_hmac('sha3-256', $computerChoice, $key);
 
         echo "Let's determine who makes the first move.\n";
@@ -74,96 +74,78 @@ class DiceGame {
     private function userTurn() {
         $this->displayDiceOptions();
         echo "Choose your dice:\n";
-    
+
         $userDiceIndex = $this->getValidDiceSelection();
-        $this->userDice = $this->dice[$userDiceIndex]; // Сохраняем выбранную кость
-        unset($this->dice[$userDiceIndex]); // Удаляем выбранную кость
-        $this->dice = array_values($this->dice); // Перенумеровываем индексы после удаления
-    
-        // Убираем отладочный вывод
+        $this->userDice = $this->dice[$userDiceIndex];
+        unset($this->dice[$userDiceIndex]);
+        $this->dice = array_values($this->dice);
+
         $this->computerDice = $this->chooseComputerDice();
         echo "I chose the [" . implode(',', $this->computerDice) . "] dice.\n";
-    
+
         $this->playRounds();
     }
-    
-    
 
     private function computerTurn() {
         $this->computerDice = $this->chooseComputerDice();
         echo "I chose the [" . implode(',', $this->computerDice) . "] dice.\n";
-    
+
         $this->displayDiceOptions();
         echo "Choose your dice:\n";
-    
+
         $userDiceIndex = $this->getValidDiceSelection();
-        $this->userDice = $this->dice[$userDiceIndex]; // Сохраняем выбранную кость
-        unset($this->dice[$userDiceIndex]); // Удаляем выбранную кость
-        $this->dice = array_values($this->dice); // Перенумеровываем индексы
-    
+        $this->userDice = $this->dice[$userDiceIndex];
+        unset($this->dice[$userDiceIndex]);
+        $this->dice = array_values($this->dice);
+
         $this->playRounds();
     }
-    
 
     private function chooseComputerDice() {
-        $remainingDice = $this->dice;
-    
-        if (empty($remainingDice)) {
-            die("Error: No dice left for the computer to choose from. This should not happen.\n");
-        }
-    
-        $selectedIndex = array_rand($remainingDice); // Выбираем случайный индекс
-        $selectedDice = $remainingDice[$selectedIndex];
-        unset($this->dice[$selectedIndex]); // Удаляем выбранную компьютером кость
-        $this->dice = array_values($this->dice); // Перенумеровываем индексы
+        $selectedIndex = array_rand($this->dice);
+        $selectedDice = $this->dice[$selectedIndex];
+        unset($this->dice[$selectedIndex]);
+        $this->dice = array_values($this->dice);
         return $selectedDice;
-    }
-    
-    
-    
-    
-
-    private function getValidDiceSelection() {
-        $validOptions = array_keys($this->dice);
-        $input = trim(fgets(STDIN));
-
-        while (!in_array((int)$input, $validOptions)) {
-            echo "Invalid input. Try again:\n";
-            $input = trim(fgets(STDIN));
-        }
-
-        return (int)$input;
     }
 
     private function playRounds() {
-        $computerThrow = $this->makeThrow("Computer");
-        $userThrow = $this->makeThrow("User");
-
-        echo "Comparing throws: \n";
+        echo "\nIt's My turn.\n";
+        $computerThrow = $this->makeThrow("Computer", $this->computerDice, $this->userDice);
+    
+        echo "\nIt's User's turn.\n";
+        $userThrow = $this->makeThrow("User", $this->userDice, $this->userDice);
+    
+        echo "Comparing throws:\n";
         $this->compareThrows($userThrow, $computerThrow);
     }
+    
 
-    private function makeThrow($player) {
-        $key = bin2hex(random_bytes(32)); // Генерация криптографического ключа (256 бит)
-        $number = $this->generateFairRandomInt(0, 5); // Честное случайное число в диапазоне 0..5
-        $hmac = hash_hmac('sha3-256', $number, $key); // Генерация HMAC
+    private function makeThrow($player, $dice, $humanDice) {
+        $key = bin2hex(random_bytes(32));
+        $index = $this->generateFairRandomInt(0, count($dice) - 1);
+        $hmac = hash_hmac('sha3-256', $index, $key);
 
-        echo "$player selected a random value in the range 0..5 (HMAC=$hmac).\n";
-        echo "Add your number modulo 6.\n";
-        echo "0 - 0\n1 - 1\n2 - 2\n3 - 3\n4 - 4\n5 - 5\nX - exit\n? - help\nYour selection: ";
+        echo "I selected a random value in the range 0..5 (HMAC=$hmac).\n";
+        echo "Add your number modulo " . count($humanDice) . ".\n";
 
-        $userChoice = $this->getUserInput(['0', '1', '2', '3', '4', '5', 'X', '?']);
+        foreach ($humanDice as $i => $value) {
+            echo "$i - $value\n";
+        }
+        echo "X - exit\n? - help\nYour selection: ";
+
+        $userChoice = $this->getUserInput(array_merge(range(0, count($humanDice) - 1), ['X', '?']));
         if ($userChoice === 'X') exit("Game exited.\n");
         if ($userChoice === '?') {
             $this->showHelp();
-            return $this->makeThrow($player);
+            return $this->makeThrow($player, $dice, $humanDice);
         }
 
         $userChoice = (int)$userChoice;
-        echo "$player's number is $number (KEY=$key).\n";
+        echo "$player's number is " . $dice[$index] . " (KEY=$key).\n";
 
-        $result = ($number + $userChoice) % 6;
-        echo "The result is $number + $userChoice = $result (mod 6).\n";
+        $result = ($dice[$index] + $humanDice[$userChoice]) % count($humanDice);
+        echo "The result is {$dice[$index]} + {$humanDice[$userChoice]} = {$result} (mod " . count($humanDice) . ").\n";
         return $result;
     }
 
@@ -178,7 +160,7 @@ class DiceGame {
 
     private function compareThrows($userResult, $computerResult) {
         echo "User's throw: $userResult\n";
-        echo "Computer's throw: $computerResult\n";
+        echo "My throw: $computerResult\n";
 
         if ($userResult > $computerResult) {
             echo "You win ($userResult > $computerResult)!\n";
@@ -188,20 +170,25 @@ class DiceGame {
             echo "It's a draw ($computerResult = $userResult)!\n";
         }
     }
+
     private function displayDiceOptions() {
         echo "Available dice:\n";
-    
         foreach ($this->dice as $index => $die) {
             echo "$index - [" . implode(',', $die) . "]\n";
         }
-    
-        if (empty($this->dice)) {
-            echo "No dice available for selection.\n";
-        }
     }
-    
-    
-    
+
+    private function getValidDiceSelection() {
+        $validOptions = array_keys($this->dice);
+        $input = trim(fgets(STDIN));
+
+        while (!in_array((int)$input, $validOptions)) {
+            echo "Invalid input. Try again:\n";
+            $input = trim(fgets(STDIN));
+        }
+
+        return (int)$input;
+    }
 
     private function getUserInput($validOptions) {
         $input = trim(fgets(STDIN));
@@ -221,33 +208,30 @@ class DiceGame {
     private function generateProbabilityTable() {
         $output = new ConsoleOutput();
         $table = new Table($output);
-    
-        // Заголовок таблицы
+
         $header = ["User dice v"];
         foreach ($this->parseDice(array_slice($_SERVER['argv'], 1)) as $die) {
             $header[] = implode(",", $die);
         }
         $table->setHeaders($header);
-    
-        // Генерация строк таблицы
-        $originalDiceSet = $this->parseDice(array_slice($_SERVER['argv'], 1)); // Все кости, переданные в начале
+
+        $originalDiceSet = $this->parseDice(array_slice($_SERVER['argv'], 1));
         foreach ($originalDiceSet as $userDice) {
             $row = [implode(",", $userDice)];
             foreach ($originalDiceSet as $opponentDice) {
                 if ($userDice === $opponentDice) {
-                    $row[] = "-"; // Для одной и той же кости вероятность "-"
+                    $row[] = "-";
                 } else {
                     $probability = $this->calculateWinProbability($userDice, $opponentDice);
-                    $row[] = number_format($probability, 4); // Вероятность с 4 знаками после запятой
+                    $row[] = number_format($probability, 4);
                 }
             }
             $table->addRow($row);
         }
-    
+
         echo "Probability of winning for all dice:\n";
         $table->render();
     }
-    
 
     private function calculateWinProbability($userDice, $opponentDice) {
         $userWins = 0;
@@ -265,7 +249,6 @@ class DiceGame {
     }
 }
 
-// Запуск игры
 $args = array_slice($argv, 1);
 $game = new DiceGame($args);
 $game->startGame();
